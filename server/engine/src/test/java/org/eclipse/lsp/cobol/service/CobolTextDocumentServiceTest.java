@@ -116,7 +116,8 @@ class CobolTextDocumentServiceTest {
             asyncAnalysisService,
             documentModelService,
             watcherService,
-            copybookService);
+            copybookService,
+            mock(SourceUnitGraph.class));
     DidChangeHandler didChangeHandler =
         new DidChangeHandler(asyncAnalysisService, documentGraph, documentModelService);
     DefinitionHandler definitionHandler =

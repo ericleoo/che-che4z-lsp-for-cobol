@@ -283,7 +283,10 @@ public class SourceUnitGraph implements AnalysisStateListener {
   public synchronized void updateContent(String uri, String content) {
     if (objectRef.containsKey(uri)) {
       NodeV nodeV = objectRef.get(uri);
-      nodeV.setContent(content);
+      // Avoid populating large content for copybook nodes to limit memory
+      if (!nodeV.isCopybook) {
+        nodeV.setContent(content);
+      }
     }
   }
 
@@ -305,6 +308,17 @@ public class SourceUnitGraph implements AnalysisStateListener {
                             if (strings.isEmpty()) {
                               documentGraphIndexedByCopybook.remove(node.uri);
                               updateReferences(uri, node);
+                              // If no references remain and not open, drop copybook object
+                              Optional.ofNullable(objectRef.get(node.getUri()))
+                                  .ifPresent(
+                                      n -> {
+                                        boolean noRefs =
+                                            n.getReferencedLocation() == null
+                                                || n.getReferencedLocation().isEmpty();
+                                        if (noRefs && !n.isOpenInIde) {
+                                          objectRef.remove(node.getUri());
+                                        }
+                                      });
                             }
                           }));
       documentGraph.remove(uri);
@@ -313,7 +327,8 @@ public class SourceUnitGraph implements AnalysisStateListener {
         objectRef.clear();
       }
     }
-    Optional.ofNullable(objectRef.get(uri)).ifPresent(node -> node.setOpenInIde(false));
+    // Remove the closed document's node to free memory
+    objectRef.remove(uri);
   }
 
   private void updateReferences(String uri, NodeV node) {

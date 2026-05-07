@@ -21,6 +21,7 @@ import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.lsp.cobol.common.copybook.CopybookService;
 import org.eclipse.lsp.cobol.lsp.DisposableLSPStateService;
+import org.eclipse.lsp.cobol.lsp.SourceUnitGraph;
 import org.eclipse.lsp.cobol.lsp.analysis.AsyncAnalysisService;
 import org.eclipse.lsp.cobol.service.DocumentModelService;
 import org.eclipse.lsp.cobol.service.WatcherService;
@@ -35,6 +36,7 @@ public class DidCloseHandler {
   private final DocumentModelService documentModelService;
   private final WatcherService watcherService;
   private final CopybookService copybookService;
+  private final SourceUnitGraph sourceUnitGraph;
 
   @Inject
   public DidCloseHandler(
@@ -42,12 +44,14 @@ public class DidCloseHandler {
       AsyncAnalysisService asyncAnalysisService,
       DocumentModelService documentModelService,
       WatcherService watcherService,
-      CopybookService copybookService) {
+      CopybookService copybookService,
+      SourceUnitGraph sourceUnitGraph) {
     this.disposableLSPStateService = disposableLSPStateService;
     this.asyncAnalysisService = asyncAnalysisService;
     this.documentModelService = documentModelService;
     this.watcherService = watcherService;
     this.copybookService = copybookService;
+    this.sourceUnitGraph = sourceUnitGraph;
   }
 
   /**
@@ -62,7 +66,12 @@ public class DidCloseHandler {
     String uri = params.getTextDocument().getUri();
     LOG.info(format("Document closing invoked on URI %s", uri));
     watcherService.removeRuntimeWatchers(uri);
+    // Cancel analysis first to stop any tasks holding references
+    asyncAnalysisService.cancelAnalysis(uri);
+    // Then clear document model and diagnostics
     documentModelService.closeDocument(uri);
+    // Clear workspace graph references and any in-memory content for this document
+    sourceUnitGraph.remove(uri);
     // TODO: check if sourceUnitGraph could be used update copybook cache
     if (copybookService instanceof CopybookServiceImpl) {
       CopybookServiceImpl copybookServiceImpl = (CopybookServiceImpl) copybookService;
@@ -70,6 +79,8 @@ public class DidCloseHandler {
           .filter(copybookModel -> Objects.isNull(copybookModel.getContent()))
           .forEach(copybookServiceImpl::invalidateCache);
     }
-    asyncAnalysisService.cancelAnalysis(uri);
+    // finally, free SourceUnitGraph links and content
+    // (this happens after model close so we drop references deterministically)
+    // sourceUnitGraph.remove(uri) invoked earlier in this method
   }
 }

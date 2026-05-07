@@ -335,6 +335,13 @@ public class AsyncAnalysisService implements AnalysisStateNotifier {
     if (analysisResults.containsKey(analysisID)) {
       analysisResults.get(analysisID).cancel(true);
     }
+    // Shut down and remove per-document executor to free threads and queues
+    synchronized (analysisExecutors) {
+      ExecutorService exec = analysisExecutors.remove(uri);
+      if (exec != null) {
+        exec.shutdownNow();
+      }
+    }
   }
 
   /**

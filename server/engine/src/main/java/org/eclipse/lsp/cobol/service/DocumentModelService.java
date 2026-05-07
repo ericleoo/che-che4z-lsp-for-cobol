@@ -127,6 +127,8 @@ public class DocumentModelService {
         uri,
         (k, documentModel) -> {
           removeAllRelatedDiagnostics(documentModel);
+          // Clear analysis results and outline to release AST references
+          documentModel.clearAnalysis();
           return null;
         });
   }

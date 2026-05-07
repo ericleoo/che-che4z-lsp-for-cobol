@@ -93,6 +93,15 @@ public class CobolDocumentModel {
   }
 
   /**
+   * Clear both current and last analysis results to allow GC of AST and diagnostics.
+   */
+  public void clearAnalysis() {
+    this.analysisResult = null;
+    this.lastAnalysisResult = null;
+    this.outlineResult = null;
+  }
+
+  /**
    * Update CobolDocumentModel with a new text
    *
    * @param text - the new document text
