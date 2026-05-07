@@ -40,6 +40,7 @@ import org.eclipse.lsp.cobol.common.dialects.CobolLanguageId;
 import org.eclipse.lsp.cobol.common.model.tree.RootNode;
 import org.eclipse.lsp.cobol.common.processor.ProcessingPhase;
 import org.eclipse.lsp.cobol.dialects.ibm.ProcessingResult;
+import org.eclipse.lsp.cobol.core.engine.errors.ErrorFinalizerService;
 import picocli.CommandLine;
 
 /** Analysis cli command */
@@ -78,6 +79,8 @@ public class CliAnalysis implements Callable<Integer> {
       defaultValue = "1")
   private int repeat = 1;
 
+  private ErrorFinalizerService errorFinalizerService;
+
   @Override
   public Integer call() throws Exception {
     if (args.workspaceConfig != null) {
@@ -94,6 +97,7 @@ public class CliAnalysis implements Callable<Integer> {
 
     Injector diCtx = Guice.createInjector(new CliModule());
     CliClientProvider cliClientProvider = diCtx.getInstance(CliClientProvider.class);
+    errorFinalizerService = diCtx.getInstance(ErrorFinalizerService.class);
 
     cliClientProvider.setCpyPaths(createCopybooksPaths());
     cliClientProvider.setCpyExt(createCopybooksExtensions());
@@ -152,7 +156,7 @@ public class CliAnalysis implements Callable<Integer> {
         .getAccumulatedErrors()
         .forEach(
             err -> {
-              JsonObject diagnostic = CliUtils.diagnosticToJson(err);
+              JsonObject diagnostic = CliUtils.diagnosticToJson(errorFinalizerService.localizeErrorMessage(err));
               diagnostics.add(diagnostic);
             });
     result.add("diagnostics", diagnostics);
